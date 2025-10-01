@@ -1,0 +1,35 @@
+﻿#pragma once
+#include <Siv3D.hpp>
+
+// Forcusableオブジェクトのデータ構造
+struct FocusableObjectModel
+{
+	String fileName; // 例: "Lockbox.json"
+};
+
+// ルームのデータ構造
+struct RoomModel
+{
+	String name;
+	Array<FocusableObjectModel> objects;
+};
+
+class DimensionModel
+{
+public:
+	DimensionModel();
+
+	void CreateNew(const FilePath& baseDir, const String& dimensionName);
+	void Load(const FilePath& dimensionPath);
+	void Save();
+
+	const String& getDimensionName() const { return m_dimensionName; }
+	const Array<RoomModel>& getRooms() const { return m_rooms; }
+	bool isDimensionLoaded() const { return (not m_currentDimensionPath.isEmpty()); }
+
+private:
+	FilePath m_currentDimensionPath;
+	int m_dimensionId;
+	String m_dimensionName;
+	Array<RoomModel> m_rooms;	
+};

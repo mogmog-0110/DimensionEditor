@@ -1,0 +1,6 @@
+[submodule "imgui-s3d-wrapper"]
+	path = imgui-s3d-wrapper
+	url = git@github.com:mogmog-0110/imgui-s3d-wrapper.git
+[submodule "DimensionEditor/imgui-s3d-wrapper"]
+	path = DimensionEditor/imgui-s3d-wrapper
+	url = git@github.com:mogmog-0110/imgui-s3d-wrapper.git
