@@ -74,7 +74,7 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <DisableSpecificWarnings>26451;26812;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/Zc:__cplusplus /utf-8 %(AdditionalOptions)</AdditionalOptions>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <ForcedIncludeFiles>stdafx.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <BuildStlModules>false</BuildStlModules>
@@ -134,6 +134,10 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="View\EditorView.cpp" />
+    <ClCompile Include="View\Inspector\GenericDrawer.cpp" />
+    <ClCompile Include="View\Inspector\InspectorDrawerUtils.cpp" />
+    <ClCompile Include="View\Inspector\RoomConnectionsDrawer.cpp" />
+    <ClCompile Include="View\Inspector\SchemaDrivenDrawer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="App\engine\texture\box-shadow\128.png" />
@@ -185,6 +189,7 @@
   <ItemGroup>
     <None Include=".editorconfig" />
     <None Include="App\dll\soundtouch\SoundTouch_x64.dll" />
+    <None Include="App\editor_config.json" />
     <None Include="App\engine\font\fontawesome\fontawesome-brands.otf.zstdcmp" />
     <None Include="App\engine\font\fontawesome\fontawesome-solid.otf.zstdcmp" />
     <None Include="App\engine\font\materialdesignicons\license.md" />
@@ -340,6 +345,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Controller\EditorController.hpp" />
+    <ClInclude Include="Controller\EditorDrafts.hpp" />
     <ClInclude Include="imgui-s3d-wrapper\imgui\DearImGuiAddon.hpp" />
     <ClInclude Include="imgui-s3d-wrapper\imgui\imconfig.h" />
     <ClInclude Include="imgui-s3d-wrapper\imgui\imgui.h" />
@@ -348,9 +354,17 @@
     <ClInclude Include="imgui-s3d-wrapper\imgui\imstb_rectpack.h" />
     <ClInclude Include="imgui-s3d-wrapper\imgui\imstb_textedit.h" />
     <ClInclude Include="imgui-s3d-wrapper\imgui\imstb_truetype.h" />
+    <ClInclude Include="ImGuiHelpers.hpp" />
     <ClInclude Include="Model\DimensionModel.hpp" />
+    <ClInclude Include="SchemaManager.hpp" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="View\EditorView.hpp" />
+    <ClInclude Include="View\Inspector\GenericDrawer.hpp" />
+    <ClInclude Include="View\Inspector\IInspectorDrawer.hpp" />
+    <ClInclude Include="View\Inspector\InspectorDrawerFactory.hpp" />
+    <ClInclude Include="View\Inspector\InspectorDrawerUtils.hpp" />
+    <ClInclude Include="View\Inspector\RoomConnectionsDrawer.hpp" />
+    <ClInclude Include="View\Inspector\SchemaDrivenDrawer.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App\example\obj\blacksmith.obj">

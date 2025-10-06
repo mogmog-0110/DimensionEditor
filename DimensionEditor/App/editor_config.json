@@ -1,0 +1,16 @@
+{
+  "item_ids": [
+    "WindowKey",
+    "Dummy1",
+    "Dummy2",
+    "Dummy3",
+    "Dummy4",
+    "Dummy5"
+  ],
+  "flag_ids": [
+    "OpenedBalcony",
+    "OpenedMultiverse",
+    "SolvedLightsOut",
+    "SolvedRotatingPuzzle"
+  ]
+}

@@ -1,6 +1,6 @@
 ﻿#include <Siv3D.hpp>
 #define IMGUI_DEFINE_MATH_OPERATORS
-#include "DearImGuiAddon.hpp"
+#include "imgui-s3d-wrapper/imgui/DearImGuiAddon.hpp"
 
 #include "Model/DimensionModel.hpp"
 #include "View/EditorView.hpp"
@@ -14,6 +14,14 @@ void Main()
 
 	// Siv3DのアドオンとしてImGuiを登録
 	Addon::Register<DearImGuiAddon>(U"ImGui");
+
+	// ImGuiのコンテキストを取得して、ドッキングを有効化
+	auto& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+	InitializeSchemas();
+	InitializeRecursiveSchemas();
+
 
 	DimensionModel model;
 	EditorController controller{ model };

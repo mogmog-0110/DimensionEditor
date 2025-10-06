@@ -21,15 +21,25 @@ public:
 
 	void CreateNew(const FilePath& baseDir, const String& dimensionName);
 	void Load(const FilePath& dimensionPath);
-	void Save();
 
+	void CreateNewFocusableFile(const String& roomName, const String& fileName);
+
+	void AddNewRoom(const String& roomName);
+	
 	const String& getDimensionName() const { return m_dimensionName; }
 	const Array<RoomModel>& getRooms() const { return m_rooms; }
 	bool isDimensionLoaded() const { return (not m_currentDimensionPath.isEmpty()); }
+	void saveJsonForPath(const FilePath& path, const JSON& jsonData);
+
+	const FilePath& getCurrentDimensionPath() const { return m_currentDimensionPath; }
+
+	void addHotspot(const FilePath& targetJsonPath, const JSON& newHotspot);
+
+
 
 private:
 	FilePath m_currentDimensionPath;
 	int m_dimensionId;
 	String m_dimensionName;
-	Array<RoomModel> m_rooms;	
+	Array<RoomModel> m_rooms;
 };
