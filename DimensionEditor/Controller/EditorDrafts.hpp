@@ -19,6 +19,7 @@ struct ActionDraft
 	std::unique_ptr<ActionDraft> finalAction;
 	std::vector<std::unique_ptr<ActionDraft>> actionList;
 	std::string idBuffer;
+	std::string targetDimensionBuffer;
 
 	// コピー禁止、ムーブ許可
 	ActionDraft() = default;

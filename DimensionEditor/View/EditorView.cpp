@@ -24,7 +24,8 @@ namespace
 		"フラグを操作 (SetFlag)",
 		"条件分岐 (Conditional)",
 		"連続実行 (Sequence)",
-		"ステップ実行 (MultiStep)"
+		"ステップ実行 (MultiStep)",
+		"次元を移動 (ChangeDimension)"
 	};
 	enum ActionTypeIndex {
 		ActionType_ShowText = 0,
@@ -32,7 +33,8 @@ namespace
 		ActionType_SetFlag,
 		ActionType_Conditional,
 		ActionType_Sequence,
-		ActionType_MultiStep
+		ActionType_MultiStep,
+		ActionType_ChangeDimension
 	};
 }
 
@@ -122,13 +124,14 @@ JSON createActionTemplate(const String& type)
 String GridToString(const Point& p)
 {
 	if (p.x < 0 || p.y < 0) return U"";
-	return U"{}{}"_fmt(static_cast<char32>(U'A' + p.x), p.y + 1);
+	return U"{}{}"_fmt(static_cast<char32>(U'A' + p.y), p.x + 1);
 }
 
 String GridRectToString(const Rect& r)
 {
 	const String start = GridToString(r.pos);
 	const String end = GridToString(r.br() - Point{ 1, 1 });
+
 	if (start == end)
 	{
 		return start;
@@ -290,8 +293,29 @@ void EditorView::drawRoomEditorWindow(EditorController& controller)
 					const auto& value = transPair.value;
 					ImGui::PushID(key.toUTF8().c_str());
 					ImGui::Bullet(); ImGui::SameLine();
-					if (value.isString()) { ImGui::Text("%s -> %s", key.toUTF8().c_str(), value.get<String>().toUTF8().c_str()); }
-					else if (value.isObject()) { ImGui::Text("%s -> %s (if %s is TRUE)", key.toUTF8().c_str(), value[U"to"].get<String>().toUTF8().c_str(), value[U"condition"].get<String>().toUTF8().c_str()); }
+					if (value.isString())
+					{
+						ImGui::Text("%s -> %s", key.toUTF8().c_str(), value.get<String>().toUTF8().c_str());
+					}
+					else if (value.isObject())
+					{
+						// まず行き先は必ず表示
+						ImGui::Text("%s -> %s", key.toUTF8().c_str(), value[U"to"].get<String>().toUTF8().c_str());
+
+						// conditionキーが存在する場合のみ、条件を表示
+						if (value.hasElement(U"condition"))
+						{
+							ImGui::SameLine();
+							ImGui::Text(" (if %s is TRUE)", value[U"condition"].get<String>().toUTF8().c_str());
+						}
+						// grid_posキーが存在する場合のみ、位置を表示
+						if (value.hasElement(U"grid_pos"))
+						{
+							ImGui::SameLine();
+							ImGui::Text(" (at %s)", value[U"grid_pos"].get<String>().toUTF8().c_str());
+						}
+					}
+
 					ImGui::SameLine(ImGui::GetWindowWidth() - 40);
 					if (ImGui::SmallButton("X")) { transitionToDelete = key; }
 					ImGui::PopID();
@@ -424,9 +448,10 @@ void EditorView::drawRoomEditorWindow(EditorController& controller)
 		// 閉じるボタン
 		//==============================================================================
 		ImGui::Separator();
-		if (ImGui::Button("Apply", ImVec2(120, 0)))
+		if (ImGui::Button("Apply & Save", ImVec2(120, 0)))
 		{
 			controller.updateRoomData(m_editingRoomName, m_editingRoomDataCopy);
+			controller.saveSelectedJson();
 			m_showRoomEditor = false;
 		}
 		ImGui::SameLine();
@@ -751,7 +776,11 @@ void EditorView::drawCustomActionEditor(ActionDraft& draft)
 		}
 		break;
 	}
-
+	case ActionType_ChangeDimension:
+	{
+		ImGui::InputText("ターゲット次元ID", &draft.targetDimensionBuffer);
+		break;
+	}
 	}
 }
 
@@ -831,6 +860,11 @@ void EditorView::buildDraftFromActionJson(ActionDraft& draft, const JSON& json)
 			}
 		}
 	}
+	else if (type == U"ChangeDimension")
+	{
+		draft.typeIndex = ActionType_ChangeDimension;
+		draft.targetDimensionBuffer = json[U"target"].getOpt<String>().value_or(U"").toUTF8();
+	}
 }
 
 void EditorView::drawGridSelectorWindow(EditorController& controller)
@@ -841,19 +875,21 @@ void EditorView::drawGridSelectorWindow(EditorController& controller)
 		return;
 	}
 
-	// 第2引数に表示フラグの参照を渡すことで、「×」ボタンでウィンドウが閉じられるようになります。
+	// 第2引数に表示フラグの参照を渡すことで、「×」ボタンでウィンドウが閉じられる
 	if (ImGui::Begin("Grid Selector", &m_showGridSelector, ImGuiWindowFlags_AlwaysAutoResize))
 	{
-		const int cols = 8;
-		const int rows = 6;
-		const float cellSize = 40.0f;
+		const int cols = 16;
+		const int rows = 12;
+		const float cellSize = 20.0f;
 		const ImVec2 buttonSize(cellSize, cellSize);
 		const ImVec4 selectColor(0.2f, 0.6f, 1.0f, 0.8f);
 		const ImGuiIO& io = ImGui::GetIO();
 
-		// ImGui::GetWindowDrawList()はBegin/Endの内側で呼ぶのが安全です
+		// ImGui::GetWindowDrawList()はBegin/Endの内側で呼ぶのが安全
 		ImDrawList* drawList = ImGui::GetWindowDrawList();
 		const ImVec2 p = ImGui::GetCursorScreenPos();
+
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 
 		for (int y = 0; y < rows; ++y)
 		{
@@ -884,11 +920,15 @@ void EditorView::drawGridSelectorWindow(EditorController& controller)
 						m_gridSelectionRect.set(x, y, 1, 1);
 					}
 				}
-				ImGui::SameLine(0, 0);
+				if (x < cols - 1)
+				{
+					ImGui::SameLine();
+				}
 				ImGui::PopID();
 			}
-			ImGui::NewLine();
 		}
+		ImGui::PopStyleVar();
+
 		for (int y = 0; y <= rows; ++y) { drawList->AddLine(ImVec2(p.x, p.y + y * cellSize), ImVec2(p.x + cols * cellSize, p.y + y * cellSize), IM_COL32(100, 100, 100, 255)); }
 		for (int x = 0; x <= cols; ++x) { drawList->AddLine(ImVec2(p.x + x * cellSize, p.y), ImVec2(p.x + x * cellSize, p.y + rows * cellSize), IM_COL32(100, 100, 100, 255)); }
 		if (m_gridSelectionRect.x != -1)
@@ -995,19 +1035,33 @@ void EditorView::drawEditFocusableWindow(EditorController& controller)
 
 void EditorView::drawAddTransitionWindow(EditorController& controller)
 {
-	// 1. 表示フラグがfalseなら何もしない
+	// 表示フラグがfalseなら何もしない
 	if (!m_showAddTransitionWindow)
 	{
 		return;
 	}
 
-	// 2. BeginPopupModal から Begin に変更
+	// BeginPopupModal から Begin に変更
 	if (ImGui::Begin("Add New Transition", &m_showAddTransitionWindow, ImGuiWindowFlags_AlwaysAutoResize))
 	{
 		ImGui::Text("New Transition");
 		ImGui::Separator();
 		const char* directions[] = { "Up", "Down", "Left", "Right", "Forward" };
 		ImGui::Combo("Direction", &m_newTransitionDirectionIndex, directions, IM_ARRAYSIZE(directions));
+
+		// "Forward"が選択されている時だけ、grid_posの入力欄を表示
+		if (strcmp(directions[m_newTransitionDirectionIndex], "Forward") == 0)
+		{
+			// テキスト入力を読み取り専用にし、「Select...」ボタンを追加
+			ImGui::InputText("Grid Position", &m_newTransitionGridPosBuffer, ImGuiInputTextFlags_ReadOnly);
+			ImGui::SameLine();
+			if (ImGui::Button("Select...##TransitionGrid"))
+			{
+				m_gridSelectorTargetBuffer = &m_newTransitionGridPosBuffer;
+				m_showGridSelector = true;
+			}
+		}
+
 		ImGui::InputText("To (Room Name)", &m_newTransitionToBuffer);
 		const char* types[] = { "Simple", "Conditional" };
 		ImGui::Combo("Type", &m_newTransitionTypeIndex, types, IM_ARRAYSIZE(types));
@@ -1021,37 +1075,48 @@ void EditorView::drawAddTransitionWindow(EditorController& controller)
 		{
 			const String direction = Unicode::FromUTF8(directions[m_newTransitionDirectionIndex]);
 			const String to = Unicode::FromUTF8(m_newTransitionToBuffer);
+
 			if (not to.isEmpty())
 			{
-				if (m_newTransitionTypeIndex == 0) // Simple
-				{
-					m_editingRoomDataCopy[U"transitions"][direction] = to;
-				}
-				else // Conditional
+				bool isComplex = false;
+				JSON transitionObj;
+				transitionObj[U"to"] = to;
+
+				// Conditionalかどうか
+				if (m_newTransitionTypeIndex == 1) // Conditional
 				{
 					const String condition = Unicode::FromUTF8(m_newTransitionConditionBuffer);
 					if (not condition.isEmpty())
 					{
+						isComplex = true;
+						transitionObj[U"condition"] = condition;
 						const char* scopes[] = { "Dimension", "Global" };
-						m_editingRoomDataCopy[U"transitions"][direction] = JSON{
-							{ U"to", to },
-							{ U"condition", condition },
-							{ U"scope", Unicode::FromUTF8(scopes[m_newTransitionScopeIndex]) }
-						};
+						transitionObj[U"scope"] = Unicode::FromUTF8(scopes[m_newTransitionScopeIndex]);
 					}
 				}
+
+				// Forwardかつgrid_posが指定されているか
+				if (direction == U"Forward" && not m_newTransitionGridPosBuffer.empty())
+				{
+					isComplex = true;
+					transitionObj[U"grid_pos"] = Unicode::FromUTF8(m_newTransitionGridPosBuffer);
+				}
+
+				if (isComplex)
+				{
+					// conditionやgrid_posが指定された場合は、オブジェクトとして保存
+					m_editingRoomDataCopy[U"transitions"][direction] = transitionObj;
+				}
+				else
+				{
+					// それ以外の場合は、単純な文字列として保存
+					m_editingRoomDataCopy[U"transitions"][direction] = to;
+				}
 			}
-			// 3. CloseCurrentPopup の代わりにフラグをfalseにする
-			m_showAddTransitionWindow = false;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Cancel"))
-		{
-			// 3. CloseCurrentPopup の代わりにフラグをfalseにする
 			m_showAddTransitionWindow = false;
 		}
 	}
-	// 4. Beginに対応するEndを呼ぶ
+	// Beginに対応するEndを呼ぶ
 	ImGui::End();
 }
 

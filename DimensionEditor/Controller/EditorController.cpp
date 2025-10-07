@@ -9,7 +9,8 @@ namespace
 		ActionType_SetFlag,
 		ActionType_Conditional,
 		ActionType_Sequence,
-		ActionType_MultiStep
+		ActionType_MultiStep,
+		ActionType_ChangeDimension
 	};
 }
 
@@ -163,6 +164,10 @@ JSON EditorController::buildActionJson(const ActionDraft& draft)
 		}
 		break;
 	}
+	case ActionType_ChangeDimension:
+		actionObj[U"type"] = U"ChangeDimension";
+		actionObj[U"target"] = Unicode::FromUTF8(draft.targetDimensionBuffer);
+		break;
 	}
 	return actionObj;
 }

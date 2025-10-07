@@ -98,4 +98,6 @@ private:
 	bool m_showAddInteractableWindow = false;
 	bool m_showEditInteractableWindow = false;
 
+	std::string m_newTransitionGridPosBuffer;
+
 };
