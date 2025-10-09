@@ -66,15 +66,9 @@ void EditorController::updateRoomData(const String& roomName, const JSON& newRoo
 	}
 }
 
-void EditorController::addNewFocusable(const String& roomName, const String& fileName)
-{
-	m_model.CreateNewFocusableFile(roomName, fileName);
-}
-
 void EditorController::setSelectedPath(const FilePath& path)
 {
 	m_selectedPath = path;
-
 	// もしパスが空でなく、JSONファイルなら、中身を読み込んで保持する
 	if ((not m_selectedPath.isEmpty()) && (FileSystem::Extension(m_selectedPath) == U"json"))
 	{
@@ -89,7 +83,6 @@ void EditorController::setSelectedPath(const FilePath& path)
 JSON EditorController::buildActionJson(const ActionDraft& draft)
 {
 	JSON actionObj;
-
 	// アクションの種類に応じて分岐
 	switch (draft.typeIndex) {
 	case ActionType_ShowText: // テキストを表示
@@ -180,20 +173,31 @@ JSON EditorController::buildJsonFromState(const HotspotDraftState& state)
 	return hotspotObj;
 }
 
-void EditorController::addNewInteractable(const String& roomName, const InteractableDraftState& draft)
+void EditorController::addNewInteractable(JSON& roomData, const InteractableDraftState& draft)
 {
-	if (not m_selectedJsonData.hasElement(U"rooms")) return;
-
-	// Draftから新しいInteractableのJSONオブジェクトを作成
 	JSON newInteractable;
 	newInteractable[U"name"] = Unicode::FromUTF8(draft.nameBuffer);
-	newInteractable[U"asset"] = Unicode::FromUTF8(draft.assetBuffer);
-	// 既存の buildJsonFromState を再利用してhotspotオブジェクトを作成
+	newInteractable[U"default_state"][U"asset"] = Unicode::FromUTF8(draft.defaultStateDraft.assetBuffer);
+	newInteractable[U"default_state"][U"grid_pos"] = Unicode::FromUTF8(draft.defaultStateDraft.gridPosBuffer);
+
+	Array<JSON> statesArray;
+	for (const auto& stateDraft : draft.states)
+	{
+		JSON stateObj;
+		stateObj[U"condition_flag"] = Unicode::FromUTF8(stateDraft.conditionFlagBuffer);
+		stateObj[U"asset"] = Unicode::FromUTF8(stateDraft.assetBuffer);
+		stateObj[U"grid_pos"] = Unicode::FromUTF8(stateDraft.gridPosBuffer);
+		statesArray.push_back(stateObj);
+	}
+	newInteractable[U"states"] = statesArray;
 	newInteractable[U"hotspot"] = buildJsonFromState(draft.hotspotDraft);
 
-	// マスターデータ(m_selectedJsonData)を更新
-	m_selectedJsonData[U"rooms"][roomName][U"interactables"].push_back(newInteractable);
-	m_selectedJsonData[U"rooms"][roomName][U"layout"][U"interactable"][newInteractable[U"name"].get<String>()] = Unicode::FromUTF8(draft.layoutGridPosBuffer);
+	if (not roomData.hasElement(U"interactables"))
+	{
+		roomData[U"interactables"] = Array<JSON>();
+	}
+
+	roomData[U"interactables"].push_back(newInteractable);
 }
 
 void EditorController::addNewRoom(const String& roomName)
@@ -201,32 +205,65 @@ void EditorController::addNewRoom(const String& roomName)
 	m_model.AddNewRoom(roomName);
 }
 
-void EditorController::updateInteractable(const String& roomName, int interactableIndex, const InteractableDraftState& draft)
+void EditorController::updateInteractable(JSON& roomData, int interactableIndex, const InteractableDraftState& draft)
 {
-	if (not m_selectedJsonData.hasElement(U"rooms")) return;
+	auto&& target = roomData[U"interactables"][interactableIndex];
+	target[U"name"] = Unicode::FromUTF8(draft.nameBuffer);
+	target[U"default_state"][U"asset"] = Unicode::FromUTF8(draft.defaultStateDraft.assetBuffer);
+	target[U"default_state"][U"grid_pos"] = Unicode::FromUTF8(draft.defaultStateDraft.gridPosBuffer);
 
-	// 更新前の古い名前を取得（レイアウトマップのキーを更新するため）
-	const String oldName = m_selectedJsonData[U"rooms"][roomName][U"interactables"][interactableIndex][U"name"].get<String>();
-
-	// Draftから新しいInteractableのJSONオブジェクトを作成
-	JSON newInteractable;
-	newInteractable[U"name"] = Unicode::FromUTF8(draft.nameBuffer);
-	newInteractable[U"asset"] = Unicode::FromUTF8(draft.assetBuffer);
-	newInteractable[U"hotspot"] = buildJsonFromState(draft.hotspotDraft);
-
-	// マスターデータ(m_selectedJsonData)を更新
-	m_selectedJsonData[U"rooms"][roomName][U"interactables"][interactableIndex] = newInteractable;
-
-	// 古い名前のキーを削除
-	m_selectedJsonData[U"rooms"][roomName][U"layout"][U"interactable"].erase(oldName);
-	// 新しい名前のキーで位置情報を追加
-	m_selectedJsonData[U"rooms"][roomName][U"layout"][U"interactable"][newInteractable[U"name"].get<String>()] = Unicode::FromUTF8(draft.layoutGridPosBuffer);
+	Array<JSON> statesArray;
+	for (const auto& stateDraft : draft.states)
+	{
+		JSON stateObj;
+		stateObj[U"condition_flag"] = Unicode::FromUTF8(stateDraft.conditionFlagBuffer);
+		stateObj[U"asset"] = Unicode::FromUTF8(stateDraft.assetBuffer);
+		stateObj[U"grid_pos"] = Unicode::FromUTF8(stateDraft.gridPosBuffer);
+		statesArray.push_back(stateObj);
+	}
+	target[U"states"] = statesArray;
+	target[U"hotspot"] = buildJsonFromState(draft.hotspotDraft);
 }
 
-void EditorController::updateFocusable(const String& roomName, const String& focusableName, const String& newGridPos)
+void EditorController::addNewFocusable(JSON& roomData, const ForcusableDraftState& draft)
 {
-	if (m_selectedJsonData.hasElement(U"rooms"))
+	JSON newForcusable;
+	newForcusable[U"name"] = Unicode::FromUTF8(draft.nameBuffer);
+	newForcusable[U"default_state"][U"asset"] = Unicode::FromUTF8(draft.defaultStateDraft.assetBuffer);
+	newForcusable[U"hotspot"][U"grid_pos"] = Unicode::FromUTF8(draft.hotspotGridPosBuffer);
+
+	Array<JSON> statesArray;
+	for (const auto& stateDraft : draft.states)
 	{
-		m_selectedJsonData[U"rooms"][roomName][U"layout"][U"forcusable"][focusableName] = newGridPos;
+		JSON stateObj;
+		stateObj[U"condition_flag"] = Unicode::FromUTF8(stateDraft.conditionFlagBuffer);
+		stateObj[U"asset"] = Unicode::FromUTF8(stateDraft.assetBuffer);
+		statesArray.push_back(stateObj);
 	}
+	newForcusable[U"states"] = statesArray;
+
+	if (not roomData.hasElement(U"forcusables"))
+	{
+		roomData[U"forcusables"] = Array<JSON>();
+	}
+
+	roomData[U"forcusables"].push_back(newForcusable);
+}
+
+void EditorController::updateFocusable(JSON& roomData, int focusableIndex, const ForcusableDraftState& draft)
+{
+	auto&& target = roomData[U"forcusables"][focusableIndex];
+	target[U"name"] = Unicode::FromUTF8(draft.nameBuffer);
+	target[U"default_state"][U"asset"] = Unicode::FromUTF8(draft.defaultStateDraft.assetBuffer);
+	target[U"hotspot"][U"grid_pos"] = Unicode::FromUTF8(draft.hotspotGridPosBuffer);
+
+	Array<JSON> statesArray;
+	for (const auto& stateDraft : draft.states)
+	{
+		JSON stateObj;
+		stateObj[U"condition_flag"] = Unicode::FromUTF8(stateDraft.conditionFlagBuffer);
+		stateObj[U"asset"] = Unicode::FromUTF8(stateDraft.assetBuffer);
+		statesArray.push_back(stateObj);
+	}
+	target[U"states"] = statesArray;
 }

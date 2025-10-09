@@ -60,9 +60,43 @@ inline void InitializeRecursiveSchemas()
 	actionSchemaRef[U"final_action"].childSchema = g_ActionSchema;
 }
 
+// "asset" と "grid_pos" を持つ、オブジェクトの基本的な状態スキーマ
+inline const auto g_ObjectStateSchema = std::make_shared<Schema>(Schema{
+	{ U"asset", { U"Asset Name", JSONValueType::String, true, nullptr } },
+	{ U"grid_pos", { U"Grid Position", JSONValueType::String, false, nullptr } },
+});
+
+// "condition_flag" を持つ、条件付きの状態スキーマ
+inline const auto g_ConditionalStateSchema = std::make_shared<Schema>(Schema{
+	{ U"condition_flag", { U"Condition Flag", JSONValueType::String, true, nullptr } },
+	{ U"asset", { U"Asset Name", JSONValueType::String, true, nullptr } },
+	{ U"grid_pos", { U"Grid Position", JSONValueType::String, false, nullptr } },
+});
+
 inline const auto g_HotspotSchema = std::make_shared<Schema>(Schema{
 	{ U"grid_pos", { U"Position (e.g., A1-B2)", JSONValueType::String, true, nullptr } },
 	{ U"action", { U"Action", JSONValueType::Object, true, g_ActionSchema } }
+});
+
+inline const auto g_MissingPieceSchema = std::make_shared<Schema>(Schema{
+		{ U"position", { U"Position [x, y]", JSONValueType::Array, true, nullptr } },
+		{ U"item", { U"Required Item ID", JSONValueType::String, true, nullptr } }
+	});
+
+inline const auto g_CardCaseAnswerSchema = std::make_shared<Schema>(Schema{
+	{ U"code", { U"Code (Array of numbers)", JSONValueType::Array, true, nullptr } },
+	{ U"flag", { U"Flag to set on success", JSONValueType::String, true, nullptr } }
+});
+
+inline const auto g_LockboxAnswerSchema = std::make_shared<Schema>(Schema{
+	{ U"code", { U"Code", JSONValueType::String, true, nullptr } },
+	{ U"item", { U"Reward Item", JSONValueType::String, true, nullptr } }
+});
+
+inline const auto g_RoomSchema = std::make_shared<Schema>(Schema{
+	{ U"background", { U"Background Asset", JSONValueType::String, true, nullptr } },
+	{ U"transitions", { U"Room Transitions", JSONValueType::Object, false, nullptr } },
+	{ U"interactables", { U"Interactable Objects", JSONValueType::Array, false, nullptr /* g_InteractableSchema */ } }, // 再帰定義を避けるため、実際のchildSchemaはInitialize関数で設定
 });
 
 // Interactableオブジェクトのスキーマ
@@ -97,64 +131,96 @@ inline const auto g_ConditionalTransitionSchema = std::make_shared<Schema>(Schem
 	{ U"scope", { U"Flag Scope", JSONValueType::String, true, nullptr } }
 });
 
-// 部屋全体のスキーマ
-inline const auto g_RoomSchema = std::make_shared<Schema>(Schema{
-	{ U"background", { U"Background Asset", JSONValueType::String, true, nullptr } },
-	{ U"transitions", { U"Room Transitions", JSONValueType::Object, false, nullptr } }, // 値が可変なため特別扱い
-	{ U"interactables", { U"Interactable Objects", JSONValueType::Array, false, g_InteractableSchema } },
-	{ U"layout", { U"Object Layout", JSONValueType::Object, true, g_LayoutSchema } }
-});
-
-// Lockboxの答えスキーマ
-inline const auto g_LockboxAnswerSchema = std::make_shared<Schema>(Schema{
-	{ U"code", { U"Code", JSONValueType::String, true, nullptr } },
-	{ U"item", { U"Reward Item", JSONValueType::String, true, nullptr } }
-});
-
 inline const HashTable<String, Schema> g_Schemas = {
-	{
-		U"room_connections", {
-			{ U"rooms", { U"Room Definitions", JSONValueType::Object, true, nullptr }}
-		}
-	},
-	{
-		U"Whiteboard", {
-			{ U"content_image", { U"Content Texture", JSONValueType::String, true, nullptr } },
-		}
-	},
-	{
-		U"Lockbox", {
-			{ U"background_texture", { U"Background Texture", JSONValueType::String, false, nullptr } },
-			{
-				U"answers", { U"Answer List", JSONValueType::Array, true, g_LockboxAnswerSchema }
+		{
+			U"room_connections", *g_RoomSchema
+		},
+		{
+			U"Whiteboard", {
+				{ U"name", { U"Object Name", JSONValueType::String, true, nullptr } },
+				{ U"hotspot", { U"Hotspot", JSONValueType::Object, true, nullptr /* g_HotspotSchema */ } },
+				{ U"default_state", { U"Default State", JSONValueType::Object, true, g_ObjectStateSchema } },
+				{ U"states", { U"Conditional States", JSONValueType::Array, false, g_ConditionalStateSchema } },
+			}
+		},
+		{
+			U"Lockbox", {
+				{ U"name", { U"Object Name", JSONValueType::String, true, nullptr } },
+				{ U"hotspot", { U"Hotspot", JSONValueType::Object, true, nullptr /* g_HotspotSchema */ } },
+				{ U"default_state", { U"Default State", JSONValueType::Object, true, g_ObjectStateSchema } },
+				{ U"states", { U"Conditional States", JSONValueType::Array, false, g_ConditionalStateSchema } },
+				{ U"answers", { U"Answer List", JSONValueType::Array, true, g_LockboxAnswerSchema } }
+			}
+		},
+		{
+			U"Corpse", {
+				{ U"name", { U"Object Name", JSONValueType::String, true, nullptr } },
+				{ U"hotspot", { U"Hotspot", JSONValueType::Object, true, nullptr /* g_HotspotSchema */ } },
+				{ U"default_state", { U"Default State", JSONValueType::Object, true, g_ObjectStateSchema } },
+				{ U"states", { U"Conditional States", JSONValueType::Array, false, g_ConditionalStateSchema } },
+			}
+		},
+		{
+			U"Diary", {
+				{ U"name", { U"Object Name", JSONValueType::String, true, nullptr } },
+				{ U"hotspot", { U"Hotspot", JSONValueType::Object, true, nullptr /* g_HotspotSchema */ } },
+				{ U"default_state", { U"Default State", JSONValueType::Object, true, g_ObjectStateSchema } },
+				{ U"states", { U"Conditional States", JSONValueType::Array, false, g_ConditionalStateSchema } },
+				{ U"pages", { U"Diary Pages (Array of Strings)", JSONValueType::Array, true, nullptr } },
+			}
+		},
+		{
+			U"Famicom", {
+				{ U"name", { U"Object Name", JSONValueType::String, true, nullptr } },
+				{ U"hotspot", { U"Hotspot", JSONValueType::Object, true, nullptr /* g_HotspotSchema */ } },
+				{ U"default_state", { U"Default State", JSONValueType::Object, true, g_ObjectStateSchema } },
+				{ U"states", { U"Conditional States", JSONValueType::Array, false, g_ConditionalStateSchema } },
+				{ U"secret_code", { U"Secret Code", JSONValueType::String, true, nullptr } },
+				{ U"success_image", { U"Success Image Path", JSONValueType::String, true, nullptr } },
+			}
+		},
+		{
+			U"LightsOutPuzzle", {
+				{ U"name", { U"Object Name", JSONValueType::String, true, nullptr } },
+				{ U"hotspot", { U"Hotspot", JSONValueType::Object, true, nullptr /* g_HotspotSchema */ } },
+				{ U"default_state", { U"Default State", JSONValueType::Object, true, g_ObjectStateSchema } },
+				{ U"states", { U"Conditional States", JSONValueType::Array, false, g_ConditionalStateSchema } },
+				{ U"initial_grid", { U"Initial Grid (2D Array of 0s/1s)", JSONValueType::Array, true, nullptr } },
+			}
+		},
+		{
+			U"Kurotto", {
+				{ U"name", { U"Object Name", JSONValueType::String, true, nullptr } },
+				{ U"hotspot", { U"Hotspot", JSONValueType::Object, true, nullptr /* g_HotspotSchema */ } },
+				{ U"default_state", { U"Default State", JSONValueType::Object, true, g_ObjectStateSchema } },
+				{ U"states", { U"Conditional States", JSONValueType::Array, false, g_ConditionalStateSchema } },
+				{ U"initial_grid", { U"Initial Grid (2D Array)", JSONValueType::Array, true, nullptr } },
+			}
+		},
+		{
+			U"RotatingPuzzle", {
+				{ U"name", { U"Object Name", JSONValueType::String, true, nullptr } },
+				{ U"hotspot", { U"Hotspot", JSONValueType::Object, true, nullptr /* g_HotspotSchema */ } },
+				{ U"default_state", { U"Default State", JSONValueType::Object, true, g_ObjectStateSchema } },
+				{ U"states", { U"Conditional States", JSONValueType::Array, false, g_ConditionalStateSchema } },
+				{ U"background_texture", { U"Background Texture", JSONValueType::String, false, nullptr } },
+				{ U"puzzle_texture", { U"Puzzle Texture ID", JSONValueType::String, true, nullptr } },
+				{ U"puzzle_width", { U"Puzzle Width (e.g., 3)", JSONValueType::Number, true, nullptr } },
+				{ U"missing_pieces", { U"Missing Pieces Info", JSONValueType::Array, true, g_MissingPieceSchema } }
+			}
+		},
+		{
+			U"CardCase", {
+				{ U"name", { U"Object Name", JSONValueType::String, true, nullptr } },
+				{ U"hotspot", { U"Hotspot", JSONValueType::Object, true, nullptr /* g_HotspotSchema */ } },
+				{ U"default_state", { U"Default State", JSONValueType::Object, true, g_ObjectStateSchema } },
+				{ U"states", { U"Conditional States", JSONValueType::Array, false, g_ConditionalStateSchema } },
+				{ U"texture", { U"Card Textures (Array of strings)", JSONValueType::Array, true, nullptr } },
+				{ U"answers", { U"Answer Patterns", JSONValueType::Array, true, g_CardCaseAnswerSchema } }
 			}
 		}
-	},
-	{
-		U"Corpse", {
-			{ U"background_texture", { U"Background Texture", JSONValueType::String, false, nullptr } },
-		}
-	},
-	{
-		U"Diary", {
-			{ U"background_texture", { U"Background Texture", JSONValueType::String, false, nullptr } },
-			{ U"pages", { U"Diary Pages (Array of Strings)", JSONValueType::Array, true, nullptr } },
-		}
-	},
-	{
-		U"Famicom", {
-			{ U"background_texture", { U"Background Texture", JSONValueType::String, false, nullptr } },
-			{ U"secret_code", { U"Secret Code", JSONValueType::String, true, nullptr } },
-			{ U"success_image", { U"Success Image Path", JSONValueType::String, true, nullptr } },
-		}
-	},
-	{
-		U"LightsOutPuzzle", {
-			{ U"background_texture", { U"Background Texture", JSONValueType::String, false, nullptr } },
-			{ U"initial_grid", { U"Initial Grid (2D Array of 0s/1s)", JSONValueType::Array, true, nullptr } },
-		}
-	},
 };
+
 
 inline Optional<Schema> GetSchema(const String& fileName)
 {

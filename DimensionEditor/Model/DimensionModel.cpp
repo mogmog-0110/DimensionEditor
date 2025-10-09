@@ -107,43 +107,52 @@ void DimensionModel::CreateNew(const FilePath& baseDir, const String& dimensionN
 
 	// 各部屋の基本設定
 	const JSON emptyLayout = JSON{
-		{ U"forcusable", JSON()},
 		{ U"interactable", JSON() }
 	};
 
 	// 主要な4部屋（東西南北）
 	connectionsJson[U"rooms"][U"North"] = JSON{
 		{ U"background", U"BG_NORTH" },
-		{ U"transitions", JSON{ {U"Left", U"West"}, {U"Right", U"East"}, {U"Up", U"Ceiling"}, {U"Down", U"Floor"} }},
+		{ U"interactables", Array<JSON>() }, 
+		{ U"forcusables", Array<JSON>() },
 		{ U"layout", emptyLayout }
 	};
 	connectionsJson[U"rooms"][U"East"] = JSON{
 		{ U"background", U"BG_EAST" },
-		{ U"transitions", JSON{ {U"Left", U"North"}, {U"Right", U"South"}, {U"Up", U"Ceiling"}, {U"Down", U"Floor"} } },
+		{ U"interactables", Array<JSON>() },
+		{ U"forcusables", Array<JSON>() },
 		{ U"layout", emptyLayout }
 	};
 	connectionsJson[U"rooms"][U"South"] = JSON{
 		{ U"background", U"BG_SOUTH" },
-		{ U"transitions", JSON{ {U"Left", U"East"}, {U"Right", U"West"}, {U"Up", U"Ceiling"}, {U"Down", U"Floor"} } },
+		{ U"interactables", Array<JSON>() },
+		{ U"forcusables", Array<JSON>() },
 		{ U"layout", emptyLayout }
 	};
 	connectionsJson[U"rooms"][U"West"] = JSON{
 		{ U"background", U"BG_WEST" },
-		{ U"transitions", JSON{ {U"Left", U"South"}, {U"Right", U"North"}, {U"Up", U"Ceiling"}, {U"Down", U"Floor"} } },
+		{ U"interactables", Array<JSON>() },
+		{ U"forcusables", Array<JSON>() },
 		{ U"layout", emptyLayout }
 	};
 
 	// その他の部屋
 	connectionsJson[U"rooms"][U"Ceiling"] = JSON{
 		{ U"background", U"BG_CEILING" },
+		{ U"interactables", Array<JSON>() },
+		{ U"forcusables", Array<JSON>() },
 		{ U"layout", emptyLayout }
 	};
 	connectionsJson[U"rooms"][U"Floor"] = JSON{
 		{ U"background", U"BG_FLOOR" },
+		{ U"interactables", Array<JSON>() },
+		{ U"forcusables", Array<JSON>() },
 		{ U"layout", emptyLayout }
 	};
 	connectionsJson[U"rooms"][U"Multiverse"] = JSON{
 		{ U"background", U"BG_MULTIVERSE" },
+		{ U"interactables", Array<JSON>() },
+		{ U"forcusables", Array<JSON>() },
 		{ U"layout", emptyLayout }
 	};
 

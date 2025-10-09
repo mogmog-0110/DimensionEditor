@@ -31,8 +31,6 @@ private:
 
 	void openInteractableEditor(int index=-1);
 
-	void openFocusableEditor(const String& name, const String& gridPos);
-
 	void openGridSelector(std::string& targetBuffer);
 
 	void drawRoomEditorWindow(EditorController& controller);
@@ -43,13 +41,13 @@ private:
 
 	void drawGridSelectorWindow(EditorController& controller);
 
-	void drawAddFocusableWindow(EditorController& controller);
-
-	void drawEditFocusableWindow(EditorController& controller);
-
 	void drawAddTransitionWindow(EditorController& controller);
 
 	void drawInteractableEditorWindow(EditorController& controller);
+
+	void openForcusableEditor(int index = -1);
+
+	void drawForcusableEditorWindow(EditorController& controller);
 
 	static int s_selectedActionTypeIndex;
 	static int s_selectedConditionTypeIndex;
@@ -100,4 +98,10 @@ private:
 
 	std::string m_newTransitionGridPosBuffer;
 
+	ForcusableDraftState m_forcusableDraftState;
+	bool m_isEditingForcusable = false;
+	int m_editingForcusableIndex = -1;
+
+	bool m_showAddForcusableWindow = false;
+	bool m_showEditForcusableWindow = false;
 };

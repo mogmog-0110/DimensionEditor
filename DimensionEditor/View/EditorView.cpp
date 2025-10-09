@@ -162,10 +162,9 @@ void EditorView::draw(DimensionModel& model, EditorController& controller)
 	}
 
 	drawRoomEditorWindow(controller);
-	drawAddFocusableWindow(controller);
-	drawEditFocusableWindow(controller);
 	drawGridSelectorWindow(controller);
 	drawAddTransitionWindow(controller);
+	drawForcusableEditorWindow(controller);
 	drawInteractableEditorWindow(controller);
 
 	if (ImGui::BeginPopupModal("Create New Dimension", NULL, ImGuiWindowFlags_AlwaysAutoResize))
@@ -191,8 +190,6 @@ void EditorView::draw(DimensionModel& model, EditorController& controller)
 	}
 
 	drawAddHotspotModal(controller);
-
-	// 残りの通常ウィンドウ
 	drawHierarchyPanel(model, controller);
 	drawCanvasPanel(controller);
 	drawInspectorPanel(controller);
@@ -200,51 +197,53 @@ void EditorView::draw(DimensionModel& model, EditorController& controller)
 
 void EditorView::openInteractableEditor(int index)
 {
-	if (index == -1) // Addモード
-	{
+	if (index == -1) {
 		m_isEditingInteractable = false;
-		m_interactableDraftState = {}; // Draftをクリア
+		m_interactableDraftState = {};
 	}
-	else // Editモード
-	{
+	else {
 		m_isEditingInteractable = true;
 		m_editingInteractableIndex = index;
-
-		// 既存のJSONデータからDraftを作成
 		const auto& item = m_editingRoomDataCopy[U"interactables"][index];
-		const String name = item[U"name"].getOpt<String>().value_or(U"");
+		m_interactableDraftState.nameBuffer = item[U"name"].getOpt<String>().value_or(U"").toUTF8();
+		if (item.hasElement(U"default_state")) {
+			const auto& defaultState = item[U"default_state"];
+			m_interactableDraftState.defaultStateDraft.assetBuffer = defaultState[U"asset"].getOpt<String>().value_or(U"").toUTF8();
+			m_interactableDraftState.defaultStateDraft.gridPosBuffer = defaultState[U"grid_pos"].getOpt<String>().value_or(U"").toUTF8();
+		}
 
-		m_interactableDraftState.nameBuffer = name.toUTF8();
-		m_interactableDraftState.assetBuffer = item[U"asset"].getOpt<String>().value_or(U"").toUTF8();
-		m_interactableDraftState.layoutGridPosBuffer = m_editingRoomDataCopy[U"layout"][U"interactable"][name].get<String>().toUTF8();
-
-		if (item.hasElement(U"hotspot"))
+		m_interactableDraftState.states.clear();
+		if (item.hasElement(U"states"))
 		{
+			for (const auto& stateJson : item[U"states"].arrayView())
+			{
+				ConditionalStateDraft stateDraft;
+				stateDraft.conditionFlagBuffer = stateJson[U"condition_flag"].getOpt<String>().value_or(U"").toUTF8();
+				stateDraft.assetBuffer = stateJson[U"asset"].getOpt<String>().value_or(U"").toUTF8();
+				stateDraft.gridPosBuffer = stateJson[U"grid_pos"].getOpt<String>().value_or(U"").toUTF8();
+				m_interactableDraftState.states.push_back(stateDraft);
+			}
+		}
+
+		if (item.hasElement(U"hotspot")) {
 			const auto& hotspot = item[U"hotspot"];
 			m_interactableDraftState.hotspotDraft.gridPosBuffer = hotspot[U"grid_pos"].getOpt<String>().value_or(U"").toUTF8();
-			if (hotspot.hasElement(U"action"))
-			{
+			if (hotspot.hasElement(U"action")) {
 				buildDraftFromActionJson(m_interactableDraftState.hotspotDraft.rootAction, hotspot[U"action"]);
 			}
 		}
 	}
-
-	m_shouldShowInteractablePopup = true;
+	m_showAddInteractableWindow = (index == -1);
+	m_showEditInteractableWindow = (index != -1);
 }
 
-void EditorView::openFocusableEditor(const String& name, const String& gridPos)
-{
-	m_editingFocusableName = name.toUTF8();
-	m_newFocusableGridPosBuffer = gridPos.toUTF8(); // 既存の値をバッファに設定
-	m_shouldShowEditFocusablePopup = true;
-}
 
 void EditorView::openGridSelector(std::string& targetBuffer)
 {
 	m_gridSelectorTargetBuffer = &targetBuffer;
 	m_gridDragStartCell = { -1, -1 };
 	m_gridSelectionRect = { -1, -1, -1, -1 };
-	m_shouldShowGridSelectorPopup = true; 
+	m_showGridSelector = true;
 }
 
 void EditorView::drawRoomEditorWindow(EditorController& controller)
@@ -255,7 +254,6 @@ void EditorView::drawRoomEditorWindow(EditorController& controller)
 	}
 
 	String modalTitle = U"Edit Room: {}"_fmt(m_editingRoomName);
-
 	if (ImGui::Begin(modalTitle.toUTF8().c_str(), &m_showRoomEditor))
 	{
 		//==============================================================================
@@ -286,7 +284,6 @@ void EditorView::drawRoomEditorWindow(EditorController& controller)
 			{
 				if (not m_editingRoomDataCopy.hasElement(U"transitions")) { m_editingRoomDataCopy[U"transitions"] = JSON(); }
 				String transitionToDelete = U"";
-
 				for (const auto& transPair : m_editingRoomDataCopy[U"transitions"])
 				{
 					const auto& key = transPair.key;
@@ -340,104 +337,49 @@ void EditorView::drawRoomEditorWindow(EditorController& controller)
 			//--------------------------------------------------------------------------
 			if (ImGui::BeginTabItem("Layout & Objects"))
 			{
-				ImGui::Text("Focusable Objects");
+				// --- Forcusable Objects ---
+				ImGui::Text("Forcusable Objects");
 				ImGui::Separator();
-				if (not m_editingRoomDataCopy.hasElement(U"layout")) { m_editingRoomDataCopy[U"layout"] = JSON(); }
-				if (not m_editingRoomDataCopy[U"layout"].hasElement(U"forcusable")) { m_editingRoomDataCopy[U"layout"][U"forcusable"] = Array<JSON>(); }
+				if (not m_editingRoomDataCopy.hasElement(U"forcusables")) { m_editingRoomDataCopy[U"forcusables"] = Array<JSON>(); }
 
-				String focusableToDelete = U"";
-				const float contentWidthFocusable = ImGui::GetContentRegionAvail().x;
-				ImGui::Columns(2, "FocusableColumns", false);
-				ImGui::SetColumnWidth(0, contentWidthFocusable - 160);
-
-				for (const auto& focusablePair : m_editingRoomDataCopy[U"layout"][U"forcusable"])
+				int focusableIndexToDelete = -1;
+				for (size_t i = 0; i < m_editingRoomDataCopy[U"forcusables"].size(); ++i)
 				{
-					const String name = focusablePair.key;
-					const String pos = focusablePair.value.get<String>();
-
-					ImGui::PushID(name.toUTF8().c_str());
-
-					ImGui::BulletText("%s", name.toUTF8().c_str());
+					const auto& item = m_editingRoomDataCopy[U"forcusables"][i];
+					const String name = item[U"name"].getOpt<String>().value_or(U"");
+					ImGui::PushID(static_cast<int>(i) + 1000); // InteractableとIDが衝突しないようにオフセット
+					ImGui::BulletText(name.toUTF8().c_str());
+					ImGui::SameLine(ImGui::GetWindowWidth() - 120);
+					if (ImGui::SmallButton("Edit")) { openForcusableEditor(static_cast<int>(i)); }
 					ImGui::SameLine();
-					ImGui::Text("at %s", pos.toUTF8().c_str());
-					ImGui::NextColumn();
-					if (ImGui::SmallButton("Open"))
-					{
-						controller.updateRoomData(m_editingRoomName, m_editingRoomDataCopy);
-						const FilePath targetPath = controller.getModel().getCurrentDimensionPath() + m_editingRoomName + U"/" + name + U".json";
-						controller.setSelectedPath(targetPath);
-						m_showRoomEditor = false;
-					}
-
-					ImGui::SameLine();
-					if (ImGui::SmallButton("Edit"))
-					{
-						m_editingFocusableName = name.toUTF8();
-						m_newFocusableGridPosBuffer = pos.toUTF8();
-						m_showEditFocusableWindow = true;
-					}
-					ImGui::SameLine();
-					if (ImGui::SmallButton("X")) { focusableToDelete = name; }
-					ImGui::NextColumn();
+					if (ImGui::SmallButton("Delete")) { focusableIndexToDelete = static_cast<int>(i); }
 					ImGui::PopID();
 				}
-				ImGui::Columns(1);
-				if (not focusableToDelete.isEmpty())
-				{
-					m_editingRoomDataCopy[U"layout"][U"focusable"].erase(focusableToDelete);
-				}
-				if (ImGui::Button("Add Focusable..."))
-				{
-					m_newFocusableNameBuffer.clear();
-					m_newFocusableGridPosBuffer = "A1";
-					m_showAddFocusableWindow = true;
-				}
+				if (focusableIndexToDelete != -1) { m_editingRoomDataCopy[U"forcusables"].erase(focusableIndexToDelete); }
+				if (ImGui::Button("Add Forcusable...")) { openForcusableEditor(-1); }
 
 				ImGui::Dummy(ImVec2(0.0f, 20.0f));
+
+				// --- Interactable Objects ---
 				ImGui::Text("Interactable Objects");
 				ImGui::Separator();
 				if (not m_editingRoomDataCopy.hasElement(U"interactables")) { m_editingRoomDataCopy[U"interactables"] = Array<JSON>(); }
 
-				String interactableNameToDelete = U"";
 				int interactableIndexToDelete = -1;
-				const float contentWidthInteractable = ImGui::GetContentRegionAvail().x;
-				ImGui::Columns(2, "InteractableColumns", false);
-				ImGui::SetColumnWidth(0, contentWidthInteractable - 120);
 				for (size_t i = 0; i < m_editingRoomDataCopy[U"interactables"].size(); ++i)
 				{
 					const auto& item = m_editingRoomDataCopy[U"interactables"][i];
 					const String name = item[U"name"].getOpt<String>().value_or(U"");
-					if (name.isEmpty()) continue;
-					const String asset = item[U"asset"].getOpt<String>().value_or(U"");
-					const String layoutPos = item[U"grid_pos"].getOpt<String>().value_or(U"");
-
 					ImGui::PushID(static_cast<int>(i));
-					if (ImGui::TreeNode(name.toUTF8().c_str()))
-					{
-						ImGui::Text("Asset: %s", asset.toUTF8().c_str());
-						ImGui::Text("Layout Pos: %s", layoutPos.toUTF8().c_str());
-						ImGui::TreePop();
-					}
-					ImGui::NextColumn();
-
-					if (ImGui::SmallButton("Edit"))
-					{
-						openInteractableEditor(static_cast<int>(i));
-						m_showEditInteractableWindow = true;
-					}
-
+					ImGui::BulletText(name.toUTF8().c_str());
+					ImGui::SameLine(ImGui::GetWindowWidth() - 120);
+					if (ImGui::SmallButton("Edit")) { openInteractableEditor(static_cast<int>(i)); }
 					ImGui::SameLine();
-					if (ImGui::SmallButton("Delete")) { interactableNameToDelete = name; interactableIndexToDelete = static_cast<int>(i); }
-					ImGui::NextColumn();
+					if (ImGui::SmallButton("Delete")) { interactableIndexToDelete = static_cast<int>(i); }
 					ImGui::PopID();
 				}
-				ImGui::Columns(1);
 				if (interactableIndexToDelete != -1) { m_editingRoomDataCopy[U"interactables"].erase(interactableIndexToDelete); }
-				if (ImGui::Button("Add Interactable..."))
-				{
-					openInteractableEditor(-1);
-					m_showAddInteractableWindow = true;
-				}
+				if (ImGui::Button("Add Interactable...")) { openInteractableEditor(-1); }
 
 				ImGui::EndTabItem();
 			}
@@ -463,6 +405,7 @@ void EditorView::drawRoomEditorWindow(EditorController& controller)
 	}
 	ImGui::End();
 }
+
 
 void EditorView::drawMenuBar(EditorController& controller)
 {
@@ -956,83 +899,6 @@ void EditorView::drawGridSelectorWindow(EditorController& controller)
 	ImGui::End();
 }
 
-void EditorView::drawAddFocusableWindow(EditorController& controller)
-{
-	if (!m_showAddFocusableWindow)
-	{
-		return;
-	}
-
-	if (ImGui::Begin("Add New Focusable", &m_showAddFocusableWindow, ImGuiWindowFlags_AlwaysAutoResize))
-	{
-		ImGui::Text("New Focusable Object");
-		ImGui::Separator();
-		ImGui::InputText("File Name (e.g., Lockbox)", &m_newFocusableNameBuffer);
-		ImGui::InputText("Grid Position", &m_newFocusableGridPosBuffer, ImGuiInputTextFlags_ReadOnly);
-		ImGui::SameLine();
-		if (ImGui::Button("Select...##Focusable"))
-		{
-			m_gridSelectorTargetBuffer = &m_newFocusableGridPosBuffer;
-			m_showGridSelector = true;
-		}
-
-		if (ImGui::Button("OK"))
-		{
-			const String name = Unicode::FromUTF8(m_newFocusableNameBuffer);
-			const String gridPos = Unicode::FromUTF8(m_newFocusableGridPosBuffer);
-			if (not name.isEmpty() && not gridPos.isEmpty())
-			{
-				m_editingRoomDataCopy[U"layout"][U"forcusable"][name] = gridPos;
-				controller.addNewFocusable(m_editingRoomName, name + U".json");
-			}
-			m_showAddFocusableWindow = false;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Cancel"))
-		{
-			m_showAddFocusableWindow = false;
-		}
-	}
-	ImGui::End();
-}
-
-void EditorView::drawEditFocusableWindow(EditorController& controller)
-{
-	if (!m_showEditFocusableWindow)
-	{
-		return;
-	}
-
-	if (ImGui::Begin("Edit Focusable", &m_showEditFocusableWindow, ImGuiWindowFlags_AlwaysAutoResize))
-	{
-		ImGui::Text("Editing: %s", m_editingFocusableName.c_str());
-		ImGui::Separator();
-		ImGui::InputText("Grid Position", &m_newFocusableGridPosBuffer, ImGuiInputTextFlags_ReadOnly);
-		ImGui::SameLine();
-		if (ImGui::Button("Select...##EditFocusable"))
-		{
-			m_gridSelectorTargetBuffer = &m_newFocusableGridPosBuffer;
-			m_showGridSelector = true;
-		}
-
-		if (ImGui::Button("OK"))
-		{
-			const String newGridPos = Unicode::FromUTF8(m_newFocusableGridPosBuffer);
-			if (not newGridPos.isEmpty())
-			{
-				controller.updateFocusable(m_editingRoomName, Unicode::FromUTF8(m_editingFocusableName), newGridPos);
-			}
-			m_showEditFocusableWindow = false;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Cancel"))
-		{
-			m_showEditFocusableWindow = false;
-		}
-	}
-	ImGui::End();
-}
-
 void EditorView::drawAddTransitionWindow(EditorController& controller)
 {
 	// 表示フラグがfalseなら何もしない
@@ -1120,57 +986,175 @@ void EditorView::drawAddTransitionWindow(EditorController& controller)
 	ImGui::End();
 }
 
+void EditorView::openForcusableEditor(int index)
+{
+	if (index == -1) {
+		m_isEditingForcusable = false;
+		m_forcusableDraftState = {};
+	}
+	else {
+		m_isEditingForcusable = true;
+		m_editingForcusableIndex = index;
+		const auto& item = m_editingRoomDataCopy[U"forcusables"][index];
+		m_forcusableDraftState.nameBuffer = item[U"name"].getOpt<String>().value_or(U"").toUTF8();
+		m_forcusableDraftState.defaultStateDraft.assetBuffer = item[U"default_state"][U"asset"].getOpt<String>().value_or(U"").toUTF8();
+		m_forcusableDraftState.hotspotGridPosBuffer = item[U"hotspot"][U"grid_pos"].getOpt<String>().value_or(U"").toUTF8();
+
+		m_forcusableDraftState.states.clear();
+		if (item.hasElement(U"states"))
+		{
+			for (const auto& stateJson : item[U"states"].arrayView())
+			{
+				ConditionalStateDraft stateDraft;
+				stateDraft.conditionFlagBuffer = stateJson[U"condition_flag"].getOpt<String>().value_or(U"").toUTF8();
+				stateDraft.assetBuffer = stateJson[U"asset"].getOpt<String>().value_or(U"").toUTF8();
+				m_forcusableDraftState.states.push_back(stateDraft);
+			}
+		}
+	}
+	m_showAddForcusableWindow = (index == -1);
+	m_showEditForcusableWindow = (index != -1);
+}
+
+void EditorView::drawForcusableEditorWindow(EditorController& controller)
+{
+	if (!m_showAddForcusableWindow && !m_showEditForcusableWindow) return;
+	const char* title = m_isEditingForcusable ? "Edit Forcusable" : "Add New Forcusable";
+	bool& show_flag = m_isEditingForcusable ? m_showEditForcusableWindow : m_showAddForcusableWindow;
+	if (ImGui::Begin(title, &show_flag, ImGuiWindowFlags_AlwaysAutoResize)) {
+		ImGui::InputText("Name (Unique ID)", &m_forcusableDraftState.nameBuffer);
+		if (ImGui::CollapsingHeader("Default State", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::InputText("Asset Name", &m_forcusableDraftState.defaultStateDraft.assetBuffer);
+		}
+		if (ImGui::CollapsingHeader("Hotspot", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::InputText("Grid Position", &m_forcusableDraftState.hotspotGridPosBuffer, ImGuiInputTextFlags_ReadOnly);
+			ImGui::SameLine();
+			if (ImGui::Button("Select...")) {
+				openGridSelector(m_forcusableDraftState.hotspotGridPosBuffer);
+			}
+		}
+
+		if (ImGui::CollapsingHeader("Conditional States"))
+		{
+			int stateToDelete = -1;
+			for (size_t i = 0; i < m_forcusableDraftState.states.size(); ++i)
+			{
+				ImGui::PushID(static_cast<int>(i));
+				ImGui::Separator();
+				ImGui::InputText("Condition Flag", &m_forcusableDraftState.states[i].conditionFlagBuffer);
+				ImGui::InputText("Asset Name", &m_forcusableDraftState.states[i].assetBuffer);
+				if (ImGui::Button("Delete State"))
+				{
+					stateToDelete = static_cast<int>(i);
+				}
+				ImGui::PopID();
+			}
+
+			if (stateToDelete != -1)
+			{
+				m_forcusableDraftState.states.erase(m_forcusableDraftState.states.begin() + stateToDelete);
+			}
+
+			ImGui::Separator();
+			if (ImGui::Button("Add State"))
+			{
+				m_forcusableDraftState.states.push_back({});
+			}
+		}
+
+		ImGui::Separator();
+		if (ImGui::Button("OK")) {
+			if (m_isEditingForcusable) {
+				controller.updateFocusable(m_editingRoomDataCopy, m_editingForcusableIndex, m_forcusableDraftState);
+			}
+			else {
+				controller.addNewFocusable(m_editingRoomDataCopy, m_forcusableDraftState);
+			}
+			show_flag = false;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel")) {
+			show_flag = false;
+		}
+	}
+	ImGui::End();
+}
+
 void EditorView::drawInteractableEditorWindow(EditorController& controller)
 {
-	if (!m_showAddInteractableWindow && !m_showEditInteractableWindow)
-	{
-		return;
-	}
-
-	// フラグに応じてウィンドウタイトルと、閉じるために使うフラグへの参照を決定
+	if (!m_showAddInteractableWindow && !m_showEditInteractableWindow) return;
 	const char* title = m_isEditingInteractable ? "Edit Interactable" : "Add New Interactable";
 	bool& show_flag = m_isEditingInteractable ? m_showEditInteractableWindow : m_showAddInteractableWindow;
-
-	// 通常のウィンドウとして実装
-	if (ImGui::Begin(title, &show_flag, ImGuiWindowFlags_AlwaysAutoResize))
-	{
+	if (ImGui::Begin(title, &show_flag, ImGuiWindowFlags_AlwaysAutoResize)) {
 		ImGui::InputText("Name (Unique ID)", &m_interactableDraftState.nameBuffer);
-		ImGui::InputText("Asset Name", &m_interactableDraftState.assetBuffer);
-		ImGui::InputText("Layout Grid Position", &m_interactableDraftState.layoutGridPosBuffer, ImGuiInputTextFlags_ReadOnly);
-		ImGui::SameLine();
-		if (ImGui::Button("Select...##Layout"))
-		{
-			m_gridSelectorTargetBuffer = &m_interactableDraftState.layoutGridPosBuffer;
-			m_showGridSelector = true;
+		if (ImGui::CollapsingHeader("Default State", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::InputText("Asset Name", &m_interactableDraftState.defaultStateDraft.assetBuffer);
+			ImGui::InputText("Grid Position", &m_interactableDraftState.defaultStateDraft.gridPosBuffer, ImGuiInputTextFlags_ReadOnly);
+			ImGui::SameLine();
+			if (ImGui::Button("Select...##Layout")) {
+				openGridSelector(m_interactableDraftState.defaultStateDraft.gridPosBuffer);
+			}
 		}
-		ImGui::Separator();
-		if (ImGui::CollapsingHeader("Hotspot Settings", ImGuiTreeNodeFlags_DefaultOpen))
+
+		if (ImGui::CollapsingHeader("Conditional States"))
 		{
+			int stateToDelete = -1;
+			for (size_t i = 0; i < m_interactableDraftState.states.size(); ++i)
+			{
+				ImGui::PushID(static_cast<int>(i));
+				ImGui::Separator();
+				ImGui::InputText("Condition Flag", &m_interactableDraftState.states[i].conditionFlagBuffer);
+				ImGui::InputText("Asset Name", &m_interactableDraftState.states[i].assetBuffer);
+				ImGui::InputText("Grid Position", &m_interactableDraftState.states[i].gridPosBuffer, ImGuiInputTextFlags_ReadOnly);
+				ImGui::SameLine();
+				if (ImGui::Button("Select...")) {
+					openGridSelector(m_interactableDraftState.states[i].gridPosBuffer);
+				}
+				if (ImGui::Button("Delete State"))
+				{
+					stateToDelete = static_cast<int>(i);
+				}
+				ImGui::PopID();
+			}
+
+			if (stateToDelete != -1)
+			{
+				m_interactableDraftState.states.erase(m_interactableDraftState.states.begin() + stateToDelete);
+			}
+
+			ImGui::Separator();
+			if (ImGui::Button("Add State"))
+			{
+				m_interactableDraftState.states.push_back({});
+			}
+		}
+
+
+		if (ImGui::CollapsingHeader("Hotspot Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::InputText("Hotspot Grid Position", &m_interactableDraftState.hotspotDraft.gridPosBuffer, ImGuiInputTextFlags_ReadOnly);
 			ImGui::SameLine();
-			if (ImGui::Button("Select...##Hotspot"))
-			{
-				m_gridSelectorTargetBuffer = &m_interactableDraftState.hotspotDraft.gridPosBuffer;
-				m_showGridSelector = true;
+			if (ImGui::Button("Select...##Hotspot")) {
+				openGridSelector(m_interactableDraftState.hotspotDraft.gridPosBuffer);
 			}
 			ImGui::Separator();
 			ImGui::Text("Action");
 			drawCustomActionEditor(m_interactableDraftState.hotspotDraft.rootAction);
 		}
 		ImGui::Separator();
-		if (ImGui::Button("OK", ImVec2(120, 0)))
-		{
-			if (not m_interactableDraftState.nameBuffer.empty())
-			{
-				if (m_isEditingInteractable) { controller.updateInteractable(m_editingRoomName, m_editingInteractableIndex, m_interactableDraftState); }
-				else { controller.addNewInteractable(m_editingRoomName, m_interactableDraftState); }
+		if (ImGui::Button("OK", ImVec2(120, 0))) {
+			if (not m_interactableDraftState.nameBuffer.empty()) {
+				if (m_isEditingInteractable) {
+					controller.updateInteractable(m_editingRoomDataCopy, m_editingInteractableIndex, m_interactableDraftState);
+				}
+				else {
+					controller.addNewInteractable(m_editingRoomDataCopy, m_interactableDraftState);
+				}
 			}
-			show_flag = false; // ウィンドウを閉じる
+			show_flag = false;
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Cancel", ImVec2(120, 0)))
-		{
-			show_flag = false; // ウィンドウを閉じる
+		if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+			show_flag = false;
 		}
 	}
 	ImGui::End();

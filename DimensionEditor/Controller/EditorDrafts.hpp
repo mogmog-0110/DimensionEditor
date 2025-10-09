@@ -36,10 +36,35 @@ struct HotspotDraftState
 	ActionDraft rootAction;
 };
 
+struct ConditionalStateDraft
+{
+	std::string conditionFlagBuffer;
+	std::string assetBuffer;
+	std::string gridPosBuffer;
+};
+
+
 struct InteractableDraftState
 {
 	std::string nameBuffer;
-	std::string assetBuffer;
-	std::string layoutGridPosBuffer;
+	struct DefaultStateDraft {
+		std::string assetBuffer;
+		std::string gridPosBuffer;
+	};
+	DefaultStateDraft defaultStateDraft;
 	HotspotDraftState hotspotDraft;
+	std::vector<ConditionalStateDraft> states;
 };
+
+struct ForcusableDraftState
+{
+	std::string nameBuffer;
+	std::string hotspotGridPosBuffer;
+
+	struct DefaultStateDraft {
+		std::string assetBuffer;
+	};
+	DefaultStateDraft defaultStateDraft;
+	std::vector<ConditionalStateDraft> states;
+};
+

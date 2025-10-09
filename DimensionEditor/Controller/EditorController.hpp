@@ -27,15 +27,17 @@ public:
 
 	void updateRoomData(const String& roomName, const JSON& newRoomData);
 
-	void addNewFocusable(const String& roomName, const String& fileName);
 
-	void addNewInteractable(const String& roomName, const InteractableDraftState& draft);
+	void addNewInteractable(JSON& roomData, const InteractableDraftState& draft);
 
 	void addNewRoom(const String& roomName);
 
-	void updateInteractable(const String& roomName, int interactableIndex, const InteractableDraftState& draft);
+	void updateInteractable(JSON& roomData, int interactableIndex, const InteractableDraftState& draft);
 
-	void updateFocusable(const String& roomName, const String& focusableName, const String& newGridPos);
+
+	void addNewFocusable(JSON& roomData, const ForcusableDraftState& draft);
+
+	void updateFocusable(JSON& roomData, int focusableIndex, const ForcusableDraftState& draft);
 
 	DimensionModel& getModel() { return m_model; }
 	const DimensionModel& getModel() const { return m_model; }
