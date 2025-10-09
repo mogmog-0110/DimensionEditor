@@ -50,7 +50,8 @@ inline void InitializeSchemas()
 	};
 }
 
-inline void InitializeRecursiveSchemas() {
+inline void InitializeRecursiveSchemas()
+{
 	auto& actionSchemaRef = const_cast<Schema&>(*g_ActionSchema);
 	actionSchemaRef[U"success"].childSchema = g_ActionSchema;
 	actionSchemaRef[U"failure"].childSchema = g_ActionSchema;
