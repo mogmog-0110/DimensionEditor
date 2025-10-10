@@ -34,8 +34,7 @@ public:
 
 	void updateInteractable(JSON& roomData, int interactableIndex, const InteractableDraftState& draft);
 
-
-	void addNewFocusable(JSON& roomData, const ForcusableDraftState& draft);
+	void addNewFocusable(const String& roomName, JSON& roomData, const ForcusableDraftState& draft);
 
 	void updateFocusable(JSON& roomData, int focusableIndex, const ForcusableDraftState& draft);
 

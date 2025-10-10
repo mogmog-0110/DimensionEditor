@@ -218,8 +218,37 @@ inline const HashTable<String, Schema> g_Schemas = {
 				{ U"texture", { U"Card Textures (Array of strings)", JSONValueType::Array, true, nullptr } },
 				{ U"answers", { U"Answer Patterns", JSONValueType::Array, true, g_CardCaseAnswerSchema } }
 			}
-		}
+		},
+	{
+			U"Drawer", {
+				{ U"name", { U"Object Name", JSONValueType::String, true, nullptr } },
+				{ U"hotspot", { U"Hotspot", JSONValueType::Object, true, nullptr /* g_HotspotSchema */ } },
+				{ U"default_state", { U"Default State", JSONValueType::Object, true, g_ObjectStateSchema } },
+				{ U"states", { U"Conditional States", JSONValueType::Array, false, g_ConditionalStateSchema } },
+				{ U"bg_open", { U"Background (Open)", JSONValueType::String, false, nullptr } },
+				{ U"bg_close", { U"Background (Close)", JSONValueType::String, false, nullptr } },
+				{ U"item_open", { U"Item (Open)", JSONValueType::String, false, nullptr } },
+				{ U"item_close", { U"Item (Close)", JSONValueType::String, false, nullptr } },
+			}
+		},
 };
+
+inline void InitializeSchemaDependencies()
+{
+	// g_Schemasは定数なので、初期化時のみの特別な処理としてconst_castを使い、一時的に書き込みを許可します。
+	auto& schemasRef = const_cast<HashTable<String, Schema>&>(g_Schemas);
+
+	// g_Schemas内のすべてのスキーマをループ
+	for (auto& pair : schemasRef)
+	{
+		// もしスキーマに "hotspot" というキーがあれば
+		if (pair.second.contains(U"hotspot"))
+		{
+			// その hotspot の childSchema に g_HotspotSchema を設定する
+			pair.second.at(U"hotspot").childSchema = g_HotspotSchema;
+		}
+	}
+}
 
 
 inline Optional<Schema> GetSchema(const String& fileName)

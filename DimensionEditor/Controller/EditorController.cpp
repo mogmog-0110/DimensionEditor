@@ -225,7 +225,7 @@ void EditorController::updateInteractable(JSON& roomData, int interactableIndex,
 	target[U"hotspot"] = buildJsonFromState(draft.hotspotDraft);
 }
 
-void EditorController::addNewFocusable(JSON& roomData, const ForcusableDraftState& draft)
+void EditorController::addNewFocusable(const String& roomName, JSON& roomData, const ForcusableDraftState& draft)
 {
 	JSON newForcusable;
 	newForcusable[U"name"] = Unicode::FromUTF8(draft.nameBuffer);
@@ -248,11 +248,14 @@ void EditorController::addNewFocusable(JSON& roomData, const ForcusableDraftStat
 	}
 
 	roomData[U"forcusables"].push_back(newForcusable);
+
+	const String fileName = Unicode::FromUTF8(draft.nameBuffer) + U".json";
+	m_model.CreateNewFocusableFile(roomName, fileName);
 }
 
 void EditorController::updateFocusable(JSON& roomData, int focusableIndex, const ForcusableDraftState& draft)
 {
-	auto&& target = roomData[U"forcusables"][focusableIndex];
+	auto target = roomData[U"forcusables"][focusableIndex];
 	target[U"name"] = Unicode::FromUTF8(draft.nameBuffer);
 	target[U"default_state"][U"asset"] = Unicode::FromUTF8(draft.defaultStateDraft.assetBuffer);
 	target[U"hotspot"][U"grid_pos"] = Unicode::FromUTF8(draft.hotspotGridPosBuffer);

@@ -21,7 +21,7 @@ void Main()
 
 	InitializeSchemas();
 	InitializeRecursiveSchemas();
-
+	InitializeSchemaDependencies();
 
 	DimensionModel model;
 	EditorController controller{ model };

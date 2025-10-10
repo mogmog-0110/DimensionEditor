@@ -476,7 +476,7 @@ void EditorView::drawHierarchyPanel(DimensionModel& model, EditorController& con
 							controller.setSelectedPath(objectPath);
 						}
 					}
-					ImGui::TreePop(); 
+					ImGui::TreePop();
 				}
 			}
 			ImGui::TreePop();
@@ -516,7 +516,7 @@ void EditorView::drawInspectorPanel(EditorController& controller)
 
 	const FilePath& selectedPath = controller.getSelectedPath();
 	DimensionModel& model = controller.getModel();
-	
+
 	if (selectedPath != m_lastSelectedPath)
 	{
 		m_currentDrawer = InspectorDrawerFactory::Create(FileSystem::BaseName(selectedPath));
@@ -1068,7 +1068,7 @@ void EditorView::drawForcusableEditorWindow(EditorController& controller)
 				controller.updateFocusable(m_editingRoomDataCopy, m_editingForcusableIndex, m_forcusableDraftState);
 			}
 			else {
-				controller.addNewFocusable(m_editingRoomDataCopy, m_forcusableDraftState);
+				controller.addNewFocusable(m_editingRoomName, m_editingRoomDataCopy, m_forcusableDraftState);
 			}
 			show_flag = false;
 		}
